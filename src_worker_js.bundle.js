@@ -1185,7 +1185,6 @@ class CombatSimulator extends EventTarget {
         }
 
         source.combatDetails.currentManapoints -= ability.manaCost;
-
         let sourceIntelligenceExperience = _combatUtilities__WEBPACK_IMPORTED_MODULE_0__["default"].calculateIntelligenceExperience(ability.manaCost);
         this.simResult.addExperienceGain(source, "intelligence", sourceIntelligenceExperience);
 
@@ -1764,15 +1763,15 @@ class CombatUnit {
             this.combatDetails[stat + "Level"] = this[stat + "Level"];
             let boosts = this.getBuffBoosts("/buff_types/" + stat + "_level");
             boosts.forEach((buff) => {
-                this.combatDetails[stat + "Level"] += Math.floor(this[stat + "Level"] * buff.ratioBoost);
+                this.combatDetails[stat + "Level"] += this[stat + "Level"] * buff.ratioBoost;
                 this.combatDetails[stat + "Level"] += buff.flatBoost;
             });
         });
 
         this.combatDetails.maxHitpoints =
-            10 * (10 + this.combatDetails.staminaLevel) + this.combatDetails.combatStats.maxHitpoints;
+            Math.floor(10 * (10 + this.combatDetails.staminaLevel) + this.combatDetails.combatStats.maxHitpoints);
         this.combatDetails.maxManapoints =
-            10 * (10 + this.combatDetails.intelligenceLevel) + this.combatDetails.combatStats.maxManapoints;
+            Math.floor(10 * (10 + this.combatDetails.intelligenceLevel) + this.combatDetails.combatStats.maxManapoints);
 
         let accuracyRatioBoost = this.getBuffBoost("/buff_types/accuracy").ratioBoost;
         let damageRatioBoost = this.getBuffBoost("/buff_types/damage").ratioBoost;
