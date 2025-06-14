@@ -592,6 +592,7 @@ class CombatUnit {
         let combatRareFindBoosts = this.getBuffBoost("/buff_types/rare_find");
         this.combatDetails.combatStats.combatRareFind += (1 + this.combatDetails.combatStats.combatRareFind) * combatRareFindBoosts.ratioBoost;
         this.combatDetails.combatStats.combatRareFind += combatRareFindBoosts.flatBoost;
+        this.combatDetails.combatStats.combatDropQuantity += 0.295;
 
         let baseThreat = 100 + this.combatDetails.combatStats.threat;
         this.combatDetails.totalThreat = baseThreat;
@@ -659,27 +660,20 @@ class CombatUnit {
         }
         if (this.zoneBuffs) {
             this.zoneBuffs.forEach(buff => {
-                if (buff.uniqueHrid == "/buff_uniques/experience_action_buff" && buff.flatBoost) {
-                    const rebuff = { ...buff };
-                    rebuff.flatBoost = ((1 + rebuff.flatBoost) * 1.295 - 0.95);
-                    this.addPermanentBuff(rebuff);
-                } else {
                     this.addPermanentBuff(buff);
-                }
             });
-        } else {
-            const buff = {
-                "uniqueHrid": "/buff_uniques/experience_action_buff",
-                "typeHrid": "/buff_types/wisdom",
-                "ratioBoost": 0,
-                "ratioBoostLevelBonus": 0,
-                "flatBoost": 0.295+0.05,
-                "flatBoostLevelBonus": 0,
-                "startTime": "0001-01-01T00:00:00Z",
-                "duration": 0
-            }
-            this.addPermanentBuff(buff);
         }
+        const extxpbuff = {
+            "uniqueHrid": "/buff_uniques/experience_action_buff",
+            "typeHrid": "/buff_types/wisdom",
+            "ratioBoost": 0,
+            "ratioBoostLevelBonus": 0,
+            "flatBoost": 0.295+0.05,
+            "flatBoostLevelBonus": 0,
+            "startTime": "0001-01-01T00:00:00Z",
+            "duration": 0
+        }
+        this.addPermanentBuff(extxpbuff);
     }
 
     removeExpiredBuffs(currentTime) {
@@ -3018,6 +3012,7 @@ function showKills(simResult, playerToDisplay) {
     let newNoRngDropChildren = [];
     let dropRateMultiplier = simResult.dropRateMultiplier[playerToDisplay];
     let rareFindMultiplier = simResult.rareFindMultiplier[playerToDisplay];
+    let dropQuantityMultiplier = simResult.dropQuantityMultiplier[playerToDisplay];
     let numberOfPlayers = simResult.numberOfPlayers;
 
     let hoursSimulated = simResult.simulatedTime / ONE_HOUR;
@@ -3070,61 +3065,106 @@ function showKills(simResult, playerToDisplay) {
                 if (drop.minEliteTier > simResult.eliteTier) {
                     continue;
                 }
-                dropMap.set(drop.itemHrid, { "dropRate": Math.min(1, drop.dropRate * dropRateMultiplier), "number": 0, "dropMin": drop.minCount, "dropMax": drop.maxCount, "noRngDropAmount": 0 });
+                if (!dropMap.has(drop.itemHrid)) dropMap.set(drop.itemHrid, []);
+                dropMap.get(drop.itemHrid).push({
+                    "dropRate": Math.min(1, drop.dropRate * dropRateMultiplier),
+                    "number": 0,
+                    "dropMin": drop.minCount,
+                    "dropMax": drop.maxCount,
+                    "noRngDropAmount": 0
+                });
             }
         if (_combatsimulator_data_combatMonsterDetailMap_json__WEBPACK_IMPORTED_MODULE_13__[monster].rareDropTable)
             for (const drop of _combatsimulator_data_combatMonsterDetailMap_json__WEBPACK_IMPORTED_MODULE_13__[monster].rareDropTable) {
                 if (drop.minEliteTier > simResult.eliteTier) {
                     continue;
                 }
-                rareDropMap.set(drop.itemHrid, { "dropRate": drop.dropRate * rareFindMultiplier, "number": 0, "dropMin": drop.minCount, "dropMax": drop.maxCount, "noRngDropAmount": 0 });
+                if (!rareDropMap.has(drop.itemHrid)) rareDropMap.set(drop.itemHrid, []);
+                rareDropMap.get(drop.itemHrid).push({
+                    "dropRate": drop.dropRate * rareFindMultiplier,
+                    "number": 0,
+                    "dropMin": drop.minCount,
+                    "dropMax": drop.maxCount,
+                    "noRngDropAmount": 0
+                });
             }
 
-        for (let dropObject of dropMap.values()) {
-            dropObject.noRngDropAmount += simResult.deaths[monster] * dropObject.dropRate * ((dropObject.dropMax + dropObject.dropMin) / 2) / numberOfPlayers;
+        for (let dropArr of dropMap.values()) {
+            for (let dropObject of dropArr) {
+                dropObject.noRngDropAmount += simResult.deaths[monster] * dropObject.dropRate * dropQuantityMultiplier * ((dropObject.dropMax + dropObject.dropMin) / 2) / numberOfPlayers;
+            }
         }
-        for (let dropObject of rareDropMap.values()) {
-            dropObject.noRngDropAmount += simResult.deaths[monster] * dropObject.dropRate * ((dropObject.dropMax + dropObject.dropMin) / 2) / numberOfPlayers;
+        for (let dropArr of rareDropMap.values()) {
+            for (let dropObject of dropArr) {
+                dropObject.noRngDropAmount += simResult.deaths[monster] * dropObject.dropRate * dropQuantityMultiplier * ((dropObject.dropMax + dropObject.dropMin) / 2) / numberOfPlayers;
+            }
         }
 
         for (let i = 0; i < simResult.deaths[monster]; i++) {
-            for (let dropObject of dropMap.values()) {
-                let chance = Math.random();
-                if (chance <= dropObject.dropRate) {
-                    let amount = Math.floor(Math.random() * (dropObject.dropMax - dropObject.dropMin + 1) + dropObject.dropMin)
-                    dropObject.number = dropObject.number + amount;
+            for (let dropArr of dropMap.values()) {
+                for (let dropObject of dropArr) {
+                    let chance = Math.random();
+                    if (chance <= dropObject.dropRate) {
+                        let amount = Math.floor(Math.random() * (dropObject.dropMax - dropObject.dropMin + 1) + dropObject.dropMin);
+                        let multipliedAmount = amount * dropQuantityMultiplier;
+                        let finalAmount = Math.floor(multipliedAmount);
+                        if (Math.random() < (multipliedAmount - finalAmount)) {
+                            finalAmount += 1;
+                        }
+                        dropObject.number = dropObject.number + finalAmount;
+                    }
                 }
             }
-            for (let dropObject of rareDropMap.values()) {
-                let chance = Math.random();
-                if (chance <= dropObject.dropRate) {
-                    let amount = Math.floor(Math.random() * (dropObject.dropMax - dropObject.dropMin + 1) + dropObject.dropMin)
-                    dropObject.number = dropObject.number + amount;
+            for (let dropArr of rareDropMap.values()) {
+                for (let dropObject of dropArr) {
+                    let chance = Math.random();
+                    if (chance <= dropObject.dropRate) {
+                        let amount = Math.floor(Math.random() * (dropObject.dropMax - dropObject.dropMin + 1) + dropObject.dropMin);
+                        let multipliedAmount = amount * dropQuantityMultiplier;
+                        let finalAmount = Math.floor(multipliedAmount);
+                        if (Math.random() < (multipliedAmount - finalAmount)) {
+                            finalAmount += 1;
+                        }
+                        dropObject.number = dropObject.number + finalAmount;
+                    }
                 }
             }
         }
-        for (let [name, dropObject] of dropMap.entries()) {
+
+        for (let [name, dropArr] of dropMap.entries()) {
+            let totalNumber = 0;
+            let totalNoRng = 0;
+            for (let dropObject of dropArr) {
+                totalNumber += dropObject.number;
+                totalNoRng += dropObject.noRngDropAmount;
+            }
             if (totalDropMap.has(name)) {
-                totalDropMap.set(name, Math.round((totalDropMap.get(name) + dropObject.number) / numberOfPlayers));
+                totalDropMap.set(name, Math.round((totalDropMap.get(name) + totalNumber) / numberOfPlayers));
             } else {
-                totalDropMap.set(name, Math.round(dropObject.number / numberOfPlayers));
+                totalDropMap.set(name, Math.round(totalNumber / numberOfPlayers));
             }
             if (noRngTotalDropMap.has(name)) {
-                noRngTotalDropMap.set(name, noRngTotalDropMap.get(name) + dropObject.noRngDropAmount);
+                noRngTotalDropMap.set(name, noRngTotalDropMap.get(name) + totalNoRng);
             } else {
-                noRngTotalDropMap.set(name, dropObject.noRngDropAmount);
+                noRngTotalDropMap.set(name, totalNoRng);
             }
         }
-        for (let [name, dropObject] of rareDropMap.entries()) {
+        for (let [name, dropArr] of rareDropMap.entries()) {
+            let totalNumber = 0;
+            let totalNoRng = 0;
+            for (let dropObject of dropArr) {
+                totalNumber += dropObject.number;
+                totalNoRng += dropObject.noRngDropAmount;
+            }
             if (totalDropMap.has(name)) {
-                totalDropMap.set(name, totalDropMap.get(name) + dropObject.number);
+                totalDropMap.set(name, totalDropMap.get(name) + totalNumber);
             } else {
-                totalDropMap.set(name, dropObject.number);
+                totalDropMap.set(name, totalNumber);
             }
             if (noRngTotalDropMap.has(name)) {
-                noRngTotalDropMap.set(name, noRngTotalDropMap.get(name) + dropObject.noRngDropAmount);
+                noRngTotalDropMap.set(name, noRngTotalDropMap.get(name) + totalNoRng);
             } else {
-                noRngTotalDropMap.set(name, dropObject.noRngDropAmount);
+                noRngTotalDropMap.set(name, totalNoRng);
             }
         }
     }

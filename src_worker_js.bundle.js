@@ -1185,6 +1185,7 @@ class CombatSimulator extends EventTarget {
         }
 
         source.combatDetails.currentManapoints -= ability.manaCost;
+
         let sourceIntelligenceExperience = _combatUtilities__WEBPACK_IMPORTED_MODULE_0__["default"].calculateIntelligenceExperience(ability.manaCost);
         this.simResult.addExperienceGain(source, "intelligence", sourceIntelligenceExperience);
 
@@ -1923,6 +1924,7 @@ class CombatUnit {
         let combatRareFindBoosts = this.getBuffBoost("/buff_types/rare_find");
         this.combatDetails.combatStats.combatRareFind += (1 + this.combatDetails.combatStats.combatRareFind) * combatRareFindBoosts.ratioBoost;
         this.combatDetails.combatStats.combatRareFind += combatRareFindBoosts.flatBoost;
+        this.combatDetails.combatStats.combatDropQuantity += 0.295;
 
         let baseThreat = 100 + this.combatDetails.combatStats.threat;
         this.combatDetails.totalThreat = baseThreat;
@@ -1990,27 +1992,20 @@ class CombatUnit {
         }
         if (this.zoneBuffs) {
             this.zoneBuffs.forEach(buff => {
-                if (buff.uniqueHrid == "/buff_uniques/experience_action_buff" && buff.flatBoost) {
-                    const rebuff = { ...buff };
-                    rebuff.flatBoost = ((1 + rebuff.flatBoost) * 1.295 - 0.95);
-                    this.addPermanentBuff(rebuff);
-                } else {
                     this.addPermanentBuff(buff);
-                }
             });
-        } else {
-            const buff = {
-                "uniqueHrid": "/buff_uniques/experience_action_buff",
-                "typeHrid": "/buff_types/wisdom",
-                "ratioBoost": 0,
-                "ratioBoostLevelBonus": 0,
-                "flatBoost": 0.295+0.05,
-                "flatBoostLevelBonus": 0,
-                "startTime": "0001-01-01T00:00:00Z",
-                "duration": 0
-            }
-            this.addPermanentBuff(buff);
         }
+        const extxpbuff = {
+            "uniqueHrid": "/buff_uniques/experience_action_buff",
+            "typeHrid": "/buff_types/wisdom",
+            "ratioBoost": 0,
+            "ratioBoostLevelBonus": 0,
+            "flatBoost": 0.295+0.05,
+            "flatBoostLevelBonus": 0,
+            "startTime": "0001-01-01T00:00:00Z",
+            "duration": 0
+        }
+        this.addPermanentBuff(extxpbuff);
     }
 
     removeExpiredBuffs(currentTime) {
@@ -3871,6 +3866,7 @@ class SimResult {
         this.manapointsGained = {};
         this.dropRateMultiplier = {};
         this.rareFindMultiplier = {};
+        this.dropQuantityMultiplier = {};
         this.playerRanOutOfMana = {
             "player1" : false,
             "player2" : false,
@@ -3997,10 +3993,17 @@ class SimResult {
             this.dropRateMultiplier[unit.hrid] = {};
         }
         this.dropRateMultiplier[unit.hrid] = 1 + unit.combatDetails.combatStats.combatDropRate;
+
         if (!this.rareFindMultiplier[unit.hrid]) {
             this.rareFindMultiplier[unit.hrid] = {};
         }
         this.rareFindMultiplier[unit.hrid] = 1 + unit.combatDetails.combatStats.combatRareFind;
+
+        if (!this.dropQuantityMultiplier[unit.hrid]) {
+            this.dropQuantityMultiplier[unit.hrid] = {};
+        }
+        this.dropQuantityMultiplier[unit.hrid] = 1 + unit.combatDetails.combatStats.combatDropQuantity;
+        console.log(unit)
     }
 
     setManaUsed(unit) {
