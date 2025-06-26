@@ -4003,7 +4003,6 @@ class SimResult {
             this.dropQuantityMultiplier[unit.hrid] = {};
         }
         this.dropQuantityMultiplier[unit.hrid] = 1 + unit.combatDetails.combatStats.combatDropQuantity;
-        console.log(unit)
     }
 
     setManaUsed(unit) {

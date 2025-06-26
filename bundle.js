@@ -2653,6 +2653,7 @@ function initDamageDoneTaken() {
 
 function showSimulationResult(simResult) {
     currentSimResults = simResult;
+    //console.log(simResult)
     let expensesModalTable = document.querySelector("#expensesTable > tbody");
     expensesModalTable.innerHTML = '<th data-i18n=\"marketplacePanel.item\">Item</th><th data-i18n=\"marketplacePanel.price\">Price</th><th data-i18n=\"common:amount\">Amount</th><th data-i18n=\"common:total\">Total</th>';
     let revenueModalTable = document.querySelector("#revenueTable > tbody");
@@ -3283,7 +3284,9 @@ function showDeaths(simResult, playerToDisplay) {
     let playerDeaths = simResult.deaths[playerToDisplay] ?? 0;
     let deathsPerHour = (playerDeaths / hoursSimulated).toFixed(2);
 
-    let deathRow = createRow(["col-md-6", "col-md-6 text-end"], ["Player", deathsPerHour]);
+    let deathInfo = `${deathsPerHour} (${playerDeaths})`;
+
+    let deathRow = createRow(["col-md-6", "col-md-6 text-end"], ["Player", deathInfo]);
     deathRow.firstElementChild.setAttribute("data-i18n", "common:player");
     resultDiv.replaceChildren(deathRow);
 }
@@ -3577,6 +3580,8 @@ function showDamageDone(simResult, playerToDisplay) {
     let totalDamageDone = {};
     let enemyIndex = 1;
 
+    let effectiveSimulatedTime = simResult.simulatedTime - 3e9 * (simResult.encounters - 1);
+    let effectiveSecondsSimulated = effectiveSimulatedTime / ONE_SECOND;
     let totalSecondsSimulated = simResult.simulatedTime / ONE_SECOND;
 
     for (let i = 1; i < 64; i++) {
@@ -3668,7 +3673,7 @@ function showDamageDone(simResult, playerToDisplay) {
     }
 
     let totalResultDiv = document.getElementById("simulationResultTotalDamageDone");
-    createDamageTable(totalResultDiv, totalDamageDone, totalSecondsSimulated);
+    createDamageTable(totalResultDiv, totalDamageDone, effectiveSecondsSimulated);
 }
 
 function showDamageTaken(simResult, playerToDisplay) {
