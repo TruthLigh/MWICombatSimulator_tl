@@ -1764,15 +1764,15 @@ class CombatUnit {
             this.combatDetails[stat + "Level"] = this[stat + "Level"];
             let boosts = this.getBuffBoosts("/buff_types/" + stat + "_level");
             boosts.forEach((buff) => {
-                this.combatDetails[stat + "Level"] += Math.floor(this[stat + "Level"] * buff.ratioBoost);
+                this.combatDetails[stat + "Level"] += this[stat + "Level"] * buff.ratioBoost;
                 this.combatDetails[stat + "Level"] += buff.flatBoost;
             });
         });
 
         this.combatDetails.maxHitpoints =
-            10 * (10 + this.combatDetails.staminaLevel) + this.combatDetails.combatStats.maxHitpoints;
+            Math.floor(10 * (10 + this.combatDetails.staminaLevel) + this.combatDetails.combatStats.maxHitpoints);
         this.combatDetails.maxManapoints =
-            10 * (10 + this.combatDetails.intelligenceLevel) + this.combatDetails.combatStats.maxManapoints;
+            Math.floor(10 * (10 + this.combatDetails.intelligenceLevel) + this.combatDetails.combatStats.maxManapoints);
 
         let accuracyRatioBoost = this.getBuffBoost("/buff_types/accuracy").ratioBoost;
         let damageRatioBoost = this.getBuffBoost("/buff_types/damage").ratioBoost;
@@ -1924,6 +1924,7 @@ class CombatUnit {
         let combatRareFindBoosts = this.getBuffBoost("/buff_types/rare_find");
         this.combatDetails.combatStats.combatRareFind += (1 + this.combatDetails.combatStats.combatRareFind) * combatRareFindBoosts.ratioBoost;
         this.combatDetails.combatStats.combatRareFind += combatRareFindBoosts.flatBoost;
+        this.combatDetails.combatStats.combatDropQuantity += 0.295;
 
         let baseThreat = 100 + this.combatDetails.combatStats.threat;
         this.combatDetails.totalThreat = baseThreat;
@@ -1991,24 +1992,20 @@ class CombatUnit {
         }
         if (this.zoneBuffs) {
             this.zoneBuffs.forEach(buff => {
-                if (buff.uniqueHrid == "/buff_uniques/experience_action_buff") {
-                    buff.flatBoost = (buffflatBoost * 1.295) + 0.05
-                }
-                this.addPermanentBuff(buff);
+                    this.addPermanentBuff(buff);
             });
-        } else {
-            const buff = {
-                "uniqueHrid": "/buff_uniques/experience_action_buff",
-                "typeHrid": "/buff_types/wisdom",
-                "ratioBoost": 0,
-                "ratioBoostLevelBonus": 0,
-                "flatBoost": 0.295+0.05,
-                "flatBoostLevelBonus": 0,
-                "startTime": "0001-01-01T00:00:00Z",
-                "duration": 0
-            }
-            this.addPermanentBuff(buff);
         }
+        const extxpbuff = {
+            "uniqueHrid": "/buff_uniques/experience_action_buff",
+            "typeHrid": "/buff_types/wisdom",
+            "ratioBoost": 0,
+            "ratioBoostLevelBonus": 0,
+            "flatBoost": 0.295+0.05,
+            "flatBoostLevelBonus": 0,
+            "startTime": "0001-01-01T00:00:00Z",
+            "duration": 0
+        }
+        this.addPermanentBuff(extxpbuff);
     }
 
     removeExpiredBuffs(currentTime) {
@@ -3869,6 +3866,7 @@ class SimResult {
         this.manapointsGained = {};
         this.dropRateMultiplier = {};
         this.rareFindMultiplier = {};
+        this.dropQuantityMultiplier = {};
         this.playerRanOutOfMana = {
             "player1" : false,
             "player2" : false,
@@ -3995,10 +3993,16 @@ class SimResult {
             this.dropRateMultiplier[unit.hrid] = {};
         }
         this.dropRateMultiplier[unit.hrid] = 1 + unit.combatDetails.combatStats.combatDropRate;
+
         if (!this.rareFindMultiplier[unit.hrid]) {
             this.rareFindMultiplier[unit.hrid] = {};
         }
         this.rareFindMultiplier[unit.hrid] = 1 + unit.combatDetails.combatStats.combatRareFind;
+
+        if (!this.dropQuantityMultiplier[unit.hrid]) {
+            this.dropQuantityMultiplier[unit.hrid] = {};
+        }
+        this.dropQuantityMultiplier[unit.hrid] = 1 + unit.combatDetails.combatStats.combatDropQuantity;
     }
 
     setManaUsed(unit) {
