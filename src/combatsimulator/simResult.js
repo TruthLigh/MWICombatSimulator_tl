@@ -29,6 +29,18 @@ class SimResult {
         this.dungeonsFailed = 0;
         this.maxWaveReached = 0;
         this.numberOfPlayers = numberOfPlayers;
+
+        this.wipeEvents = [];
+    }
+
+
+    addWipeEvent(logs, simulationTime, wave) {
+        this.wipeEvents.push({
+            simulationTime: simulationTime,
+            logs: logs,
+            wave: wave,
+            timestamp: new Date().toISOString()
+        });
     }
 
     addDeath(unit) {

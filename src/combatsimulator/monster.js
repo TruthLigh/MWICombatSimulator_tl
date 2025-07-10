@@ -18,7 +18,7 @@ class Monster extends CombatUnit {
         if (!gameMonster) {
             throw new Error("No monster found for hrid: " + this.hrid);
         }
-
+        this.name = gameMonster.name || hrid;
         for (let i = 0; i < gameMonster.abilities.length; i++) {
             if (gameMonster.abilities[i].minEliteTier > this.eliteTier) {
                 continue;
