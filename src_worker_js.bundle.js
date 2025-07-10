@@ -336,10 +336,10 @@ class CombatSimulator extends EventTarget {
         this.allPlayersDead = false;
 
         this.wipeLogs = {
-            buffer: new Array(100),
+            buffer: new Array(200),
             index: 0,
             count: 0,
-            maxSize: 100
+            maxSize: 200
         };
     }
 
@@ -700,7 +700,7 @@ class CombatSimulator extends EventTarget {
             }
 
             let attackResult = _combatUtilities__WEBPACK_IMPORTED_MODULE_0__["default"].processAttack(source, target);
-            if (target.isPlayer && attackResult.didHit && attackResult.damageDone > 0) {
+            if (this.zone.isDungeon && target.isPlayer && attackResult.didHit && attackResult.damageDone > 0) {
                 const log = this.generateCombatLog(source, "普通攻击", target, attackResult);
                 this.addToWipeLogs(log);
             }
@@ -1484,7 +1484,7 @@ class CombatSimulator extends EventTarget {
                 }
 
                 let attackResult = _combatUtilities__WEBPACK_IMPORTED_MODULE_0__["default"].processAttack(source, target, abilityEffect);
-                if (target.isPlayer && attackResult.didHit && attackResult.damageDone > 0) {
+                if (this.zone.isDungeon && target.isPlayer && attackResult.didHit && attackResult.damageDone > 0) {
                     const log = this.generateCombatLog(source, ability, target, attackResult);
                     this.addToWipeLogs(log);
                 }
