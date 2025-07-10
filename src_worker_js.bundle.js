@@ -132,6 +132,7 @@ class Ability {
             throw new Error("No ability found for hrid: " + this.hrid);
         }
 
+        this.name = gameAbility.name || hrid;
         this.manaCost = gameAbility.manaCost;
         this.cooldownDuration = gameAbility.cooldownDuration;
         this.castDuration = gameAbility.castDuration;
@@ -333,6 +334,98 @@ class CombatSimulator extends EventTarget {
         this.eventQueue = new _events_eventQueue__WEBPACK_IMPORTED_MODULE_8__["default"]();
         this.simResult = new _simResult__WEBPACK_IMPORTED_MODULE_17__["default"](zone.hrid, players.length);
         this.allPlayersDead = false;
+
+        this.wipeLogs = {
+            buffer: new Array(100),
+            index: 0,
+            count: 0,
+            maxSize: 100
+        };
+    }
+
+    addToWipeLogs(logEntry) {
+        const { buffer, maxSize } = this.wipeLogs;
+
+        buffer[this.wipeLogs.index] = logEntry;
+        this.wipeLogs.index = (this.wipeLogs.index + 1) % maxSize;
+        this.wipeLogs.count = Math.min(this.wipeLogs.count + 1, maxSize);
+    }
+
+    logAndResetWipeLogs() {
+        const logs = this.getOrderedWipeLogs();
+        
+        console.log("===== 团灭日志 =====");
+        console.log(`最后 ${logs.length} 条战斗日志：`);
+        
+        logs.forEach(log => {
+            if (log.error) {
+                console.log(log.error);
+                return;
+            }
+            
+            const time = (log.time / 1e9).toFixed(2);
+            console.log(
+                `[${time}s] [${log.source}] 用 [${log.ability}] ` +
+                `对 ${log.target} 造成 ${log.damage} 伤害，` +
+                `HP ${log.beforeHp} → ${log.afterHp}。` +
+                `队伍生命值：${log.playersHp.map(p => `${p.hrid}: ${p.current}/${p.max}`).join(" | ")}`
+            );
+        });
+
+        this.wipeLogs.index = 0;
+        this.wipeLogs.count = 0;
+        console.log("===== 团灭日志结束 =====");
+    }
+    
+    generateCombatLog(source, ability, target, attackResult) {
+        try {
+            const sourceHrid = source?.hrid || "UNKNOWN_SOURCE";
+            const abilityHrid = ability === "普通攻击" ? "AutoAttack" : 
+                             (ability?.hrid || "AutoAttack");
+            const targetHrid = target?.hrid || "UNKNOWN_TARGET";
+            const damage = attackResult?.damageDone || 0;
+            
+            const beforeHp = target?.combatDetails?.currentHitpoints || 0;
+            const afterHp = Math.max(0, beforeHp - damage);
+
+            const playersHp = this.players.map(p => ({
+                hrid: p.hrid || "UNKNOWN_PLAYER",
+                current: p.combatDetails?.currentHitpoints ?? 0,
+                max: p.combatDetails?.maxHitpoints ?? 0
+            }));
+            
+            return {
+                time: this.simulationTime,
+                source: sourceHrid,
+                ability: abilityHrid,
+                target: targetHrid,
+                damage: damage,
+                beforeHp: beforeHp,
+                afterHp: afterHp,
+                playersHp: playersHp
+            };
+        } catch (e) {
+            return {
+                error: `[日志生成错误] ${e.message}`
+            };
+        }
+    }
+    
+    getOrderedWipeLogs() {
+        const { buffer, maxSize, count } = this.wipeLogs;
+        const logs = [];
+        
+        for (let i = 0; i < count; i++) {
+            const idx = (this.wipeLogs.index - count + maxSize + i) % maxSize;
+            logs.push(buffer[idx]);
+        }
+        
+        return logs;
+    }
+
+    saveWipeLogsToSimResult(wave) {
+        const logs = this.getOrderedWipeLogs();
+        this.simResult.addWipeEvent(logs, this.simulationTime, wave);
     }
 
     async simulate(simulationTimeLimit) {
@@ -607,7 +700,10 @@ class CombatSimulator extends EventTarget {
             }
 
             let attackResult = _combatUtilities__WEBPACK_IMPORTED_MODULE_0__["default"].processAttack(source, target);
-
+            if (target.isPlayer && attackResult.didHit && attackResult.damageDone > 0) {
+                const log = this.generateCombatLog(source, "普通攻击", target, attackResult);
+                this.addToWipeLogs(log);
+            }
             let mayhem = source.combatDetails.combatStats.mayhem > Math.random();
 
             if (attackResult.didHit && source.combatDetails.combatStats.curse > 0) {
@@ -782,7 +878,14 @@ class CombatSimulator extends EventTarget {
             !this.players.some((player) => player.combatDetails.currentHitpoints > 0)
         ) {
             if (this.zone.isDungeon) {
-                console.log("All Players died at wave #" + (this.zone.encountersKilled - 1) + " with ememies: " + this.enemies.map(enemy => (enemy.hrid+"("+(enemy.combatDetails.currentHitpoints*100/enemy.combatDetails.maxHitpoints).toFixed(2)+"%)")).join(", "));
+                console.log("团灭于 #" + (this.zone.encountersKilled - 1) + " with ememies: " + this.enemies.map(enemy => (enemy.name+"("+(enemy.combatDetails.currentHitpoints*100/enemy.combatDetails.maxHitpoints).toFixed(2)+"%)")).join(", "));
+                // 保存日志到SimResult
+                const wave = this.zone.encountersKilled - 1;
+                this.saveWipeLogsToSimResult(wave);
+                console.log(this.simResult)
+                // 重置日志缓冲区
+                this.wipeLogs.index = 0;
+                this.wipeLogs.count = 0;
 
                 this.eventQueue.clear();
                 this.enemies = null;
@@ -1308,6 +1411,8 @@ class CombatSimulator extends EventTarget {
             return;
         }
 
+        let avoidTarget = []
+
         for (let target of targets.filter((unit) => unit && unit.combatDetails.currentHitpoints > 0)) {
             if (target.combatDetails.combatStats.parry > Math.random()) {
                 let tempTarget = source;
@@ -1359,7 +1464,8 @@ class CombatSimulator extends EventTarget {
                     }
                 }
             } else {
-                targets = targets.filter((unit) => unit && unit.combatDetails.currentHitpoints > 0);
+                targets = targets.filter((unit) => unit && !avoidTarget.includes(unit.hrid) && unit.combatDetails.currentHitpoints > 0);
+
                 if (!source.isPlayer && targets.length > 1 && abilityEffect.targetType == "enemy") {
                     let cumulativeThreat = 0;
                     let cumulativeRanges = [];
@@ -1374,10 +1480,14 @@ class CombatSimulator extends EventTarget {
                     });
                     let randomValueHit = Math.random() * cumulativeThreat;
                     target = cumulativeRanges.find(range => randomValueHit >= range.rangeStart && randomValueHit < range.rangeEnd).player;
+                    avoidTarget.push(target.hrid);
                 }
 
                 let attackResult = _combatUtilities__WEBPACK_IMPORTED_MODULE_0__["default"].processAttack(source, target, abilityEffect);
-
+                if (target.isPlayer && attackResult.didHit && attackResult.damageDone > 0) {
+                    const log = this.generateCombatLog(source, ability, target, attackResult);
+                    this.addToWipeLogs(log);
+                }
                 if (attackResult.hpDrain > 0) {
                     this.simResult.addHitpointsGained(source, ability.hrid, attackResult.hpDrain);
                 }
@@ -3383,7 +3493,7 @@ class Monster extends _combatUnit__WEBPACK_IMPORTED_MODULE_1__["default"] {
         if (!gameMonster) {
             throw new Error("No monster found for hrid: " + this.hrid);
         }
-
+        this.name = gameMonster.name || hrid;
         for (let i = 0; i < gameMonster.abilities.length; i++) {
             if (gameMonster.abilities[i].minEliteTier > this.eliteTier) {
                 continue;
@@ -3886,6 +3996,18 @@ class SimResult {
         this.dungeonsFailed = 0;
         this.maxWaveReached = 0;
         this.numberOfPlayers = numberOfPlayers;
+
+        this.wipeEvents = [];
+    }
+
+
+    addWipeEvent(logs, simulationTime, wave) {
+        this.wipeEvents.push({
+            simulationTime: simulationTime,
+            logs: logs,
+            wave: wave,
+            timestamp: new Date().toISOString()
+        });
     }
 
     addDeath(unit) {

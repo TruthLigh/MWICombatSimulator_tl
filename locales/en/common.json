@@ -83,5 +83,11 @@
     "solo": "Solo",
     "or": "OR",
     "import": "Import",
-    "exportGroupSolo": "Export Group/Solo"
+    "exportGroupSolo": "Export Group/Solo",
+    "noWipeEvents": "无团灭事件",
+    "noWipeEventsDetected": "未检测到团灭事件",
+    "WipeEvents": "团灭日志",
+    "wipeEvents": "嗝屁日志",
+    "combatLogs": "战斗日志",
+    "selectWipeEvent": "选择团灭日志"
 }
